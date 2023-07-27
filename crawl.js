@@ -1,27 +1,50 @@
-async function crawlPage(current_url){
+async function crawlPage(base_url,current_url,pages){
     
+   
+    const base_url_obj = new URL(base_url)
+    const current_url_obj = new URL(current_url)
+    
+    if (base_url_obj.hostname !== current_url_obj.hostname){
+        return pages
+    }
+
+    const normalized_current_url = normalizeURL(current_url)
+    
+    if( pages[normalized_current_url] > 0){
+        pages[normalized_current_url]++
+        return pages
+    }
+
+    pages[normalized_current_url]= 1
     console.log(`crawling: ${current_url}`)
+
+    let html_body = ''
     try{
         const resp = await fetch(current_url)
         console.log(`status code: ${resp.status}`)
         if (resp.status > 399){
             console.log(`error in fetch status code: ${resp.status} on page: ${current_url}`)
-            return 
+            return pages
         }
 
         const contentType = resp.headers.get("content-type")
-        if (contentType !== "text/html"){
+        if (!contentType.includes("text/html")){
             console.log(`non html response, content type: ${contentType}`)
-            return 
+            return pages
         }
-        
-        console.log( await resp.text())
 
+         html_body = await resp.text()
     }
     catch(err){
-        console.log(`error in url ${err.message} on page: ${current_url}`)
-    }
+            console.log(`error in url ${err.message} on page: ${current_url}`)
+        }
+        const next_urls = getURLsFromHTML(html_body,base_url)
 
+        for(const next_url of next_urls){
+            pages = await crawlPage(base_url,next_url,pages)
+        }
+
+        return pages
 }
 
 
